@@ -3,9 +3,8 @@ import express, { Request, Response } from 'express';
 import {
   buildAuthUrl,
   exchangeToken,
-  fetchProductsPage,
+  fetchProducts,
   getSession,
-  sanitizeShopDomain,
   SHOPIFY_SCOPES,
   validateState,
   verifyCallbackHmac,
@@ -28,14 +27,8 @@ app.get('/auth', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing shop parameter, e.g. ?shop=example.myshopify.com' });
   }
 
-  try {
-    const sanitizedShop = sanitizeShopDomain(shop);
-    const { url } = buildAuthUrl(sanitizedShop);
-    res.redirect(url);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid shop domain';
-    res.status(400).json({ error: message });
-  }
+  const { url } = buildAuthUrl(shop);
+  res.redirect(url);
 });
 
 app.get('/auth/callback', async (req: Request, res: Response) => {
@@ -45,16 +38,8 @@ app.get('/auth/callback', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing shop or code in callback.' });
   }
 
-  let sanitizedShop: string;
-  try {
-    sanitizedShop = sanitizeShopDomain(shop);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid shop domain';
-    return res.status(400).json({ error: message });
-  }
-
-  if (!validateState(state, sanitizedShop)) {
-    return res.status(400).json({ error: 'Invalid, expired, or missing state parameter.' });
+  if (!validateState(state, shop)) {
+    return res.status(400).json({ error: 'Invalid or missing state parameter.' });
   }
 
   if (!verifyCallbackHmac(req.query as Record<string, string>)) {
@@ -62,8 +47,8 @@ app.get('/auth/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    await exchangeToken(sanitizedShop, code);
-    res.json({ success: true, shop: sanitizedShop, scopes: SHOPIFY_SCOPES });
+    await exchangeToken(shop, code);
+    res.json({ success: true, shop, scopes: SHOPIFY_SCOPES });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: message });
@@ -72,27 +57,17 @@ app.get('/auth/callback', async (req: Request, res: Response) => {
 
 app.get('/products', async (req: Request, res: Response) => {
   const shop = req.query.shop as string | undefined;
-  const pageInfo = req.query.page_info as string | undefined;
-  const limit = Number(req.query.limit ?? '');
   if (!shop) {
     return res.status(400).json({ error: 'Missing shop parameter.' });
   }
 
-  let sanitizedShop: string;
-  try {
-    sanitizedShop = sanitizeShopDomain(shop);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid shop domain';
-    return res.status(400).json({ error: message });
-  }
-
-  if (!getSession(sanitizedShop)) {
+  if (!getSession(shop)) {
     return res.status(401).json({ error: 'No session for this shop. Complete OAuth first.' });
   }
 
   try {
-    const productsPage = await fetchProductsPage(sanitizedShop, { pageInfo, limit });
-    res.json({ count: productsPage.products.length, nextPageInfo: productsPage.nextPageInfo, products: productsPage.products });
+    const products = await fetchProducts(shop);
+    res.json({ count: products.length, products });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: message });

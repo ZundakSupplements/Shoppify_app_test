@@ -18,7 +18,6 @@ Required values:
 - `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET`: From your Partner Dashboard
 - `APP_URL`: Base URL of this server (e.g., `https://<ngrok>.ngrok.io`)
 - `SHOPIFY_SCOPES`: Comma-separated scopes; defaults to `read_products`
-- `STATE_TTL_MS`: Optional. How long (in ms) the OAuth `state` nonce stays valid. Defaults to 5 minutes.
 - `PORT`: Local port (default `3000`)
 
 ## Install & Run
@@ -28,10 +27,10 @@ npm run dev
 ```
 
 The server exposes:
-- `GET /auth?shop={shop-domain}` → redirects to Shopify for OAuth (rejects invalid shop domains).
-- `GET /auth/callback` → validates HMAC + state (with expiry), exchanges the code for an access token.
-- `GET /products?shop={shop-domain}&page_info={cursor?}&limit={1-250?}` → returns one page of product titles and images with an optional `nextPageInfo` cursor for pagination.
-- `GET /health` → simple health check.
+- `GET /auth?shop={shop-domain}` → redirects to Shopify for OAuth
+- `GET /auth/callback` → validates HMAC + state, exchanges the code for an access token
+- `GET /products?shop={shop-domain}` → returns product titles and images for the authorized shop
+- `GET /health` → simple health check
 
 ## OAuth flow (high level)
 1. Merchant clicks your "Connect Shopify" button that sends them to `/auth?shop=example.myshopify.com`.
